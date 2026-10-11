@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: slate
+      POSTGRES_PASSWORD: slate_dev_password
+      POSTGRES_DB: slate
+    ports: ["55432:5432"]
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U slate -d slate"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  minio:
+    build:
+      context: .
+      dockerfile: Minio.Dockerfile
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: slate_minio
+      MINIO_ROOT_PASSWORD: slate_minio_dev_password
+    ports: ["9000:9000", "9001:9001"]
+    volumes: ["minio_data:/data"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+volumes:
+  postgres_data:
+  minio_data:

@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+model User {
+  id String @id @default(uuid()) @db.Uuid
+  email String @unique
+  displayName String
+  passwordHash String
+  sessions Session[]
+  clients Client[]
+  projects Project[]
+  createdAt DateTime @default(now())
+}
+model Session {
+  id String @id @default(uuid()) @db.Uuid
+  tokenHash String @unique
+  userId String @db.Uuid
+  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+}
+model Client {
+  id String @id @default(uuid()) @db.Uuid
+  ownerId String @db.Uuid
+  owner User @relation(fields:[ownerId], references:[id])
+  name String
+  email String
+  phone String?
+  projects Project[]
+}
+model Project {
+  id String @id @default(uuid()) @db.Uuid
+  ownerId String @db.Uuid
+  owner User @relation(fields:[ownerId], references:[id])
+  clientId String @db.Uuid
+  client Client @relation(fields:[clientId], references:[id])
+  title String
+  description String
+  status String @default("DRAFT")
+  currency String @default("IDR")
+  version Int @default(0)
+  deliveryStatus String @default("LOCKED")
+  createdAt DateTime @default(now())
+  deliverables Deliverable[]
+  invoice Invoice?
+  media MediaAsset[]
+  shares Share[]
+  activity AuditEvent[]
+}
+model Deliverable {
+  id String @id @default(uuid()) @db.Uuid
+  projectId String @db.Uuid
+  project Project @relation(fields:[projectId], references:[id])
+  title String
+  type String
+  expectedQuantity Int
+}
+model Invoice {
+  id String @id @default(uuid()) @db.Uuid
+  projectId String @unique @db.Uuid
+  project Project @relation(fields:[projectId], references:[id])
+  invoiceNumber String @unique
+  status String @default("DRAFT")
+  totalMinor Int
+  currency String @default("IDR")
+  dueAt DateTime?
+  paidAt DateTime?
+  items InvoiceItem[]
+  payments PaymentAttempt[]
+}
+model InvoiceItem {
+  id String @id @default(uuid()) @db.Uuid
+  invoiceId String @db.Uuid
+  invoice Invoice @relation(fields:[invoiceId], references:[id])
+  description String
+  quantity Int
+  unitPriceMinor Int
+  lineTotalMinor Int
+}
+model PaymentAttempt {
+  id String @id @default(uuid()) @db.Uuid
+  invoiceId String @db.Uuid
+  invoice Invoice @relation(fields:[invoiceId], references:[id])
+  status String @default("PENDING")
+  provider String
+  providerOrderId String @unique
+  redirectURL String?
+  amountMinor Int
+  createdAt DateTime @default(now())
+  events PaymentEvent[]
+}
+model PaymentEvent {
+  id String @id @default(uuid()) @db.Uuid
+  eventKey String @unique
+  attemptId String @db.Uuid
+  attempt PaymentAttempt @relation(fields:[attemptId], references:[id])
+  status String
+  createdAt DateTime @default(now())
+}
+model MediaAsset {
+  id String @id @default(uuid()) @db.Uuid
+  projectId String @db.Uuid
+  project Project @relation(fields:[projectId], references:[id])
+  filename String
+  mimeType String
+  sizeBytes BigInt
+  contentHash String
+  status String @default("UPLOADING")
+  objectKey String @unique
+  previewKey String?
+  verifiedAt DateTime?
+  transfer Transfer?
+}
+model Transfer {
+  id String @id @default(uuid()) @db.Uuid
+  mediaAssetId String @unique @db.Uuid
+  media MediaAsset @relation(fields:[mediaAssetId], references:[id])
+  uploadId String?
+  status String @default("CREATING")
+  totalBytes BigInt
+  partSize Int @default(8388608)
+  parts Json @default("[]")
+  expiresAt DateTime
+  updatedAt DateTime @updatedAt
+}
+model Share {
+  id String @id @default(uuid()) @db.Uuid
+  projectId String @db.Uuid
+  project Project @relation(fields:[projectId], references:[id])
+  tokenHash String @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+}
+model Idempotency {
+  id String @id @default(uuid()) @db.Uuid
+  scope String
+  key String
+  fingerprint String
+  response Json
+  createdAt DateTime @default(now())
+  @@unique([scope,key])
+}
+model AuditEvent {
+  id String @id @default(uuid()) @db.Uuid
+  projectId String @db.Uuid
+  project Project @relation(fields:[projectId], references:[id])
+  action String
+  createdAt DateTime @default(now())
+}
